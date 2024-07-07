@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="manifest" href="/manifest.json" />
+  </head>
+  <style>
+    html {
+      background-color: #1f1f1f;
+      color: #ffffff;
+    }
+
+    #app {
+      height: 100%;
+      width: 100%;
+      margin: auto;
+    }
+
+    #textarea {
+      height: 95vh;
+      width: 100%;
+      margin: auto;
+      background-color: #2b2b2b;
+      color: #ffffff;
+    }
+
+    #panel {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      padding: 10px;
+      background-color: #2b2b2b;
+      border: 1px solid #ffffff;
+      max-height: 30vh;
+      overflow: auto;
+      cursor: pointer;
+    }
+
+    .stored-item {
+      margin-bottom: 5px;
+    }
+
+    .stored-item button {
+      margin-left: 5px;
+    }
+    .hidden {
+      display: none;
+    }
+    .panel-button {
+      width: 100%;
+      background-color: #777777;
+      color: #ffffff;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    .panel-button:hover {
+      background-color: #999999;
+    }
+  </style>
+
+  <body>
+    <div id="app">
+      <textarea id="textarea"></textarea>
+    </div>
+
+    <div id="panel">
+      <button class="panel-button" onclick="toggleStoredTexts()">
+        Stored Texts:
+      </button>
+      <div id="storedTexts" class="hidden"></div>
+    </div>
+
+    <script>
+      function toggleStoredTexts() {
+        var storedTextsDiv = document.getElementById("storedTexts");
+        storedTextsDiv.classList.toggle("hidden");
+      }
+      window.onload = function () {
+        var textarea = document.getElementById("textarea");
+        var storedTextsDiv = document.getElementById("storedTexts");
+
+        // Retrieve the stored texts array from localStorage, if available
+        var storedTexts = localStorage.getItem("storedTexts");
+        if (storedTexts) {
+          storedTexts = JSON.parse(storedTexts);
+        } else {
+          storedTexts = [];
+        }
+
+        // Update the stored texts panel
+        updateStoredTextsPanel();
+
+        // Restore the last stored text, if available
+        var lastStoredText =
+          storedTexts.length > 0 ? storedTexts[storedTexts.length - 1] : "";
+        // textarea.value = lastStoredText;
+
+        textarea.focus();
+
+        // Save the text to the stored texts array and update localStorage
+        function saveText() {
+          var currentText = textarea.value.trim();
+          if (currentText !== "") {
+            storedTexts.push(currentText);
+
+            // Limit the stored texts array to a maximum of 100 items
+            if (storedTexts.length > 100) {
+              storedTexts.shift(); // Remove the oldest item
+            }
+
+            localStorage.setItem("storedTexts", JSON.stringify(storedTexts));
+            updateStoredTextsPanel();
+          }
+        }
+
+        // Update the stored texts panel
+        function updateStoredTextsPanel() {
+          storedTextsDiv.innerHTML = "";
+
+          for (var i = 0; i < storedTexts.length; i++) {
+            var storedText = storedTexts[i].slice(0, 20);
+            if (storedTexts[i].length > 20) {
+              storedText += "...";
+            }
+
+            var storedItemDiv = document.createElement("div");
+            storedItemDiv.className = "stored-item";
+
+            var restoreButton = document.createElement("button");
+            restoreButton.textContent = "Restore";
+            restoreButton.dataset.index = i;
+            restoreButton.addEventListener("click", function () {
+              var index = parseInt(this.dataset.index);
+              var storedText = storedTexts[index];
+              textarea.value = storedText;
+              textarea.focus();
+            });
+
+            var deleteButton = document.createElement("button");
+            deleteButton.textContent = "Delete";
+            deleteButton.dataset.index = i;
+            deleteButton.addEventListener("click", function () {
+              var index = parseInt(this.dataset.index);
+              storedTexts.splice(index, 1);
+              localStorage.setItem("storedTexts", JSON.stringify(storedTexts));
+              updateStoredTextsPanel();
+            });
+
+            var storedTextSpan = document.createElement("span");
+            storedTextSpan.textContent = storedText;
+
+            storedItemDiv.appendChild(restoreButton);
+            storedItemDiv.appendChild(deleteButton);
+            storedItemDiv.appendChild(storedTextSpan);
+            storedTextsDiv.appendChild(storedItemDiv);
+          }
+        }
+
+        // Save the text to the stored texts array when the window is closed
+        window.onbeforeunload = function () {
+          saveText();
+        };
+      };
+    </script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("/service-worker.js")
+          .then(function (registration) {
+            console.log(
+              "Service worker registered with scope:",
+              registration.scope
+            );
+          })
+          .catch(function (error) {
+            console.log("Service worker registration failed:", error);
+          });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="utf-8" />
+  </head>
+  <style>
+    html {
+      background-color: #1f1f1f;
+      color: #ffffff;
+    }
+
+    #app {
+      height: 100%;
+      width: 100%;
+      margin: auto;
+    }
+
+    #textarea {
+      height: 90vh;
+      width: 100%;
+      margin: auto;
+      background-color: #2b2b2b;
+      color: #ffffff;
+    }
+  </style>
+
+  <div id="app">
+    <textarea id="textarea"></textarea>
+  </div>
+  <script>
+    window.onload = document.getElementById("textarea").focus();
+  </script>
+</html>
