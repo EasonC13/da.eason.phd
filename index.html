@@ -2,160 +2,635 @@
 <html lang="zh-TW">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Text Editor</title>
     <link rel="manifest" href="/manifest.json" />
-  </head>
-  <style>
-    html {
-      background-color: #1f1f1f;
-      color: #ffffff;
-    }
-
-    #app {
-      height: 100%;
-      width: 100%;
-      margin: auto;
-    }
-
-    #textarea {
-      height: 95vh;
-      width: 100%;
-      margin: auto;
-      background-color: #2b2b2b;
-      color: #ffffff;
-    }
-
-    #panel {
-      position: fixed;
-      bottom: 10px;
-      right: 10px;
-      padding: 10px;
-      background-color: rgba(43, 43, 43, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      max-height: 30vh;
-      overflow: auto;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    #panel:hover {
-      background-color: rgba(43, 43, 43, 1);
-      border: 1px solid rgba(255, 255, 255, 1);
-    }
-
-    .stored-item {
-      margin-bottom: 5px;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    #panel:hover .stored-item {
-      opacity: 1;
-    }
-
-    .stored-item button {
-      margin-left: 5px;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .panel-button {
-      width: 100%;
-      background-color: rgba(119, 119, 119, 0.05);
-      color: rgba(255, 255, 255, 0.05);
-      border: none;
-      padding: 5px 10px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    #panel:hover .panel-button {
-      background-color: rgba(119, 119, 119, 1);
-      color: rgba(255, 255, 255, 1);
-    }
-
-    .panel-button:hover {
-      background-color: #999999;
-    }
-  </style>
-
-  <body>
-    <div id="app">
-      <textarea id="textarea"></textarea>
-    </div>
-
-    <div id="panel">
-      <button class="panel-button" onclick="toggleStoredTexts()">
-        Stored Texts:
-      </button>
-      <div id="storedTexts" class="hidden"></div>
-    </div>
-
-    <script>
-      function toggleStoredTexts() {
-        var storedTextsDiv = document.getElementById("storedTexts");
-        storedTextsDiv.classList.toggle("hidden");
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
 
-      document.addEventListener("DOMContentLoaded", function () {
-        console.log("DOM fully loaded and parsed");
-        var textarea = document.getElementById("textarea");
-        var storedTextsDiv = document.getElementById("storedTexts");
+      html, body {
+        height: 100%;
+        background-color: #1f1f1f;
+        color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
 
-        // 確保 storedTextsDiv 初始狀態為隱藏
-        storedTextsDiv.classList.add("hidden");
+      #app {
+        display: flex;
+        height: 100vh;
+        width: 100%;
+      }
 
-        // Retrieve the stored texts array from localStorage, if available
-        var storedTexts = localStorage.getItem("storedTexts");
-        if (storedTexts) {
-          storedTexts = JSON.parse(storedTexts);
-        } else {
-          storedTexts = [];
+      /* Sidebar styles */
+      #sidebar {
+        width: 0;
+        height: 100%;
+        background-color: #2b2b2b;
+        border-right: 1px solid #3a3a3a;
+        overflow: hidden;
+        transition: width 0.3s ease;
+        flex-shrink: 0;
+      }
+
+      #sidebar.open {
+        width: 300px;
+      }
+
+      #sidebar-content {
+        width: 300px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #sidebar-header {
+        padding: 15px;
+        border-bottom: 1px solid #3a3a3a;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      #sidebar-header h3 {
+        font-size: 14px;
+        font-weight: 500;
+        color: #aaa;
+      }
+
+      #clear-all-btn {
+        background: none;
+        border: none;
+        color: #ff6b6b;
+        cursor: pointer;
+        font-size: 12px;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+      }
+
+      #clear-all-btn:hover {
+        background-color: rgba(255, 107, 107, 0.2);
+      }
+
+      #history-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+      }
+
+      .history-item {
+        padding: 12px;
+        margin-bottom: 8px;
+        background-color: #363636;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        position: relative;
+      }
+
+      .history-item:hover {
+        background-color: #444444;
+      }
+
+      .history-item-preview {
+        font-size: 13px;
+        color: #ddd;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 6px;
+      }
+
+      .history-item-date {
+        font-size: 11px;
+        color: #888;
+      }
+
+      .history-item-delete {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: #888;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        opacity: 0;
+        transition: opacity 0.2s, color 0.2s;
+      }
+
+      .history-item:hover .history-item-delete {
+        opacity: 1;
+      }
+
+      .history-item-delete:hover {
+        color: #ff6b6b;
+      }
+
+      .no-history {
+        color: #666;
+        text-align: center;
+        padding: 20px;
+        font-size: 13px;
+      }
+
+      /* Main content area */
+      #main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      #toolbar {
+        padding: 10px;
+        background-color: #2b2b2b;
+        border-bottom: 1px solid #3a3a3a;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      #toggle-sidebar {
+        background: none;
+        border: 1px solid #555;
+        color: #fff;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: background-color 0.2s;
+      }
+
+      #toggle-sidebar:hover {
+        background-color: #444;
+      }
+
+      #save-btn {
+        background-color: #4a9eff;
+        border: none;
+        color: #fff;
+        padding: 8px 16px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: background-color 0.2s;
+      }
+
+      #save-btn:hover {
+        background-color: #3a8eef;
+      }
+
+      #status {
+        font-size: 12px;
+        color: #888;
+        margin-left: auto;
+      }
+
+      #textarea {
+        flex: 1;
+        width: 100%;
+        padding: 20px;
+        background-color: #1f1f1f;
+        color: #ffffff;
+        border: none;
+        resize: none;
+        font-size: 16px;
+        line-height: 1.6;
+        font-family: inherit;
+      }
+
+      #textarea:focus {
+        outline: none;
+      }
+
+      /* Scrollbar styles */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #2b2b2b;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #555;
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="sidebar">
+        <div id="sidebar-content">
+          <div id="sidebar-header">
+            <h3>歷史記錄</h3>
+            <button id="clear-all-btn" onclick="clearAllHistory()">清除全部</button>
+          </div>
+          <div id="history-list"></div>
+        </div>
+      </div>
+
+      <div id="main-content">
+        <div id="toolbar">
+          <button id="toggle-sidebar" onclick="toggleSidebar()">☰ 歷史</button>
+          <button id="save-btn" onclick="saveCurrentText()">💾 保存</button>
+          <span id="status"></span>
+        </div>
+        <textarea id="textarea" placeholder="開始輸入..."></textarea>
+      </div>
+    </div>
+
+    <script>
+      // IndexedDB configuration
+      const DB_NAME = 'TextEditorDB';
+      const DB_VERSION = 1;
+      const STORE_NAME = 'sessions';
+      const EXPIRY_DAYS = 3;
+
+      let db = null;
+
+      // Initialize IndexedDB
+      function initDB() {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+          request.onerror = () => {
+            console.error('Failed to open IndexedDB:', request.error);
+            reject(request.error);
+          };
+
+          request.onsuccess = () => {
+            db = request.result;
+            console.log('IndexedDB opened successfully');
+            resolve(db);
+          };
+
+          request.onupgradeneeded = (event) => {
+            const database = event.target.result;
+
+            // Create object store if it doesn't exist
+            if (!database.objectStoreNames.contains(STORE_NAME)) {
+              const store = database.createObjectStore(STORE_NAME, {
+                keyPath: 'id',
+                autoIncrement: true
+              });
+              store.createIndex('timestamp', 'timestamp', { unique: false });
+              console.log('Object store created');
+            }
+          };
+        });
+      }
+
+      // Save text to IndexedDB
+      function saveText(text) {
+        return new Promise((resolve, reject) => {
+          if (!db) {
+            reject(new Error('Database not initialized'));
+            return;
+          }
+
+          if (!text || text.trim() === '') {
+            resolve(null);
+            return;
+          }
+
+          const transaction = db.transaction([STORE_NAME], 'readwrite');
+          const store = transaction.objectStore(STORE_NAME);
+
+          const session = {
+            text: text,
+            timestamp: Date.now(),
+            expiresAt: Date.now() + (EXPIRY_DAYS * 24 * 60 * 60 * 1000)
+          };
+
+          const request = store.add(session);
+
+          request.onsuccess = () => {
+            console.log('Text saved with id:', request.result);
+            resolve(request.result);
+          };
+
+          request.onerror = () => {
+            console.error('Failed to save text:', request.error);
+            reject(request.error);
+          };
+        });
+      }
+
+      // Get all sessions from IndexedDB
+      function getAllSessions() {
+        return new Promise((resolve, reject) => {
+          if (!db) {
+            reject(new Error('Database not initialized'));
+            return;
+          }
+
+          const transaction = db.transaction([STORE_NAME], 'readonly');
+          const store = transaction.objectStore(STORE_NAME);
+          const request = store.getAll();
+
+          request.onsuccess = () => {
+            // Filter out expired sessions and sort by timestamp (newest first)
+            const now = Date.now();
+            const validSessions = request.result
+              .filter(session => session.expiresAt > now)
+              .sort((a, b) => b.timestamp - a.timestamp);
+            resolve(validSessions);
+          };
+
+          request.onerror = () => {
+            reject(request.error);
+          };
+        });
+      }
+
+      // Delete a session by ID
+      function deleteSession(id) {
+        return new Promise((resolve, reject) => {
+          if (!db) {
+            reject(new Error('Database not initialized'));
+            return;
+          }
+
+          const transaction = db.transaction([STORE_NAME], 'readwrite');
+          const store = transaction.objectStore(STORE_NAME);
+          const request = store.delete(id);
+
+          request.onsuccess = () => {
+            resolve();
+          };
+
+          request.onerror = () => {
+            reject(request.error);
+          };
+        });
+      }
+
+      // Clear all sessions
+      function clearAllSessions() {
+        return new Promise((resolve, reject) => {
+          if (!db) {
+            reject(new Error('Database not initialized'));
+            return;
+          }
+
+          const transaction = db.transaction([STORE_NAME], 'readwrite');
+          const store = transaction.objectStore(STORE_NAME);
+          const request = store.clear();
+
+          request.onsuccess = () => {
+            resolve();
+          };
+
+          request.onerror = () => {
+            reject(request.error);
+          };
+        });
+      }
+
+      // Clean up expired sessions
+      async function cleanupExpiredSessions() {
+        if (!db) return;
+
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+          const now = Date.now();
+          request.result.forEach(session => {
+            if (session.expiresAt <= now) {
+              store.delete(session.id);
+              console.log('Deleted expired session:', session.id);
+            }
+          });
+        };
+      }
+
+      // Format timestamp to readable date
+      function formatDate(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return '剛剛';
+        if (diffMins < 60) return `${diffMins} 分鐘前`;
+        if (diffHours < 24) return `${diffHours} 小時前`;
+        if (diffDays < 3) return `${diffDays} 天前`;
+
+        return date.toLocaleDateString('zh-TW', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      // Get preview text (first line, truncated)
+      function getPreview(text) {
+        const firstLine = text.split('\n')[0].trim();
+        if (firstLine.length > 50) {
+          return firstLine.substring(0, 50) + '...';
+        }
+        return firstLine || '(空白)';
+      }
+
+      // Update history list UI
+      async function updateHistoryList() {
+        const historyList = document.getElementById('history-list');
+
+        try {
+          const sessions = await getAllSessions();
+
+          if (sessions.length === 0) {
+            historyList.innerHTML = '<div class="no-history">沒有歷史記錄</div>';
+            return;
+          }
+
+          historyList.innerHTML = sessions.map(session => `
+            <div class="history-item" onclick="restoreSession(${session.id})">
+              <div class="history-item-preview">${escapeHtml(getPreview(session.text))}</div>
+              <div class="history-item-date">${formatDate(session.timestamp)}</div>
+              <button class="history-item-delete" onclick="event.stopPropagation(); deleteHistoryItem(${session.id})">×</button>
+            </div>
+          `).join('');
+        } catch (error) {
+          console.error('Failed to load history:', error);
+          historyList.innerHTML = '<div class="no-history">無法載入歷史記錄</div>';
+        }
+      }
+
+      // Escape HTML to prevent XSS
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // Toggle sidebar
+      function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.classList.toggle('open');
+
+        // Save sidebar state
+        localStorage.setItem('sidebarOpen', sidebar.classList.contains('open'));
+      }
+
+      // Restore session content
+      async function restoreSession(id) {
+        if (!db) return;
+
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(id);
+
+        request.onsuccess = () => {
+          if (request.result) {
+            document.getElementById('textarea').value = request.result.text;
+            showStatus('已恢復');
+          }
+        };
+      }
+
+      // Delete a history item
+      async function deleteHistoryItem(id) {
+        try {
+          await deleteSession(id);
+          await updateHistoryList();
+          showStatus('已刪除');
+        } catch (error) {
+          console.error('Failed to delete item:', error);
+        }
+      }
+
+      // Clear all history
+      async function clearAllHistory() {
+        if (confirm('確定要清除所有歷史記錄嗎？')) {
+          try {
+            await clearAllSessions();
+            await updateHistoryList();
+            showStatus('已清除全部');
+          } catch (error) {
+            console.error('Failed to clear history:', error);
+          }
+        }
+      }
+
+      // Save current text
+      async function saveCurrentText() {
+        const textarea = document.getElementById('textarea');
+        const text = textarea.value;
+
+        if (!text || text.trim() === '') {
+          showStatus('沒有內容可保存');
+          return;
         }
 
-        // Update the stored texts panel
-        updateStoredTextsPanel();
+        try {
+          await saveText(text);
+          await updateHistoryList();
+          showStatus('已保存');
+        } catch (error) {
+          console.error('Failed to save:', error);
+          showStatus('保存失敗');
+        }
+      }
 
-        // Restore the last stored text, if available
-        var lastStoredText =
-          storedTexts.length > 0 ? storedTexts[storedTexts.length - 1] : "";
-        // textarea.value = lastStoredText;
+      // Show status message
+      function showStatus(message) {
+        const status = document.getElementById('status');
+        status.textContent = message;
+        setTimeout(() => {
+          status.textContent = '';
+        }, 2000);
+      }
 
-        textarea.focus();
+      // Initialize app
+      async function init() {
+        try {
+          await initDB();
+          await cleanupExpiredSessions();
+          await updateHistoryList();
 
-        // Save the text to the stored texts array when the window is closed
-        window.addEventListener("beforeunload", function () {
-          saveText();
-        });
-      });
+          // Restore sidebar state
+          const sidebarOpen = localStorage.getItem('sidebarOpen') === 'true';
+          if (sidebarOpen) {
+            document.getElementById('sidebar').classList.add('open');
+          }
 
-      // 確保其他函數（如 updateStoredTextsPanel 和 saveText）在這裡定義
+          // Focus textarea
+          document.getElementById('textarea').focus();
+
+          // Auto-save before page unload
+          window.addEventListener('beforeunload', async () => {
+            const text = document.getElementById('textarea').value;
+            if (text && text.trim() !== '') {
+              // Use synchronous localStorage as fallback for beforeunload
+              // IndexedDB might not complete in time
+              const pendingSave = {
+                text: text,
+                timestamp: Date.now()
+              };
+              localStorage.setItem('pendingSave', JSON.stringify(pendingSave));
+            }
+          });
+
+          // Check for pending save from previous session
+          const pendingSave = localStorage.getItem('pendingSave');
+          if (pendingSave) {
+            try {
+              const data = JSON.parse(pendingSave);
+              // Only restore if less than 1 hour old
+              if (Date.now() - data.timestamp < 3600000) {
+                await saveText(data.text);
+                await updateHistoryList();
+              }
+              localStorage.removeItem('pendingSave');
+            } catch (e) {
+              localStorage.removeItem('pendingSave');
+            }
+          }
+
+        } catch (error) {
+          console.error('Failed to initialize:', error);
+        }
+      }
+
+      // Start the app
+      document.addEventListener('DOMContentLoaded', init);
     </script>
+
     <script>
-      if ("serviceWorker" in navigator) {
+      // Service Worker registration
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker
-          .register("/service-worker.js", { updateViaCache: "none" })
+          .register('/service-worker.js', { updateViaCache: 'none' })
           .then(function (registration) {
-            console.log(
-              "Service worker registered with scope:",
-              registration.scope
-            );
-            // Check for updates
+            console.log('Service worker registered with scope:', registration.scope);
             registration.update();
           })
           .catch(function (error) {
-            console.log("Service worker registration failed:", error);
+            console.log('Service worker registration failed:', error);
           });
 
-        // Listen for updates
-        navigator.serviceWorker.addEventListener(
-          "controllerchange",
-          function () {
-            console.log("Service Worker updated. Reloading page...");
-            window.location.reload();
-          }
-        );
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          console.log('Service Worker updated. Reloading page...');
+          window.location.reload();
+        });
       }
     </script>
   </body>
