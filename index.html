@@ -695,6 +695,10 @@
             document.getElementById('textarea').value = request.result.text;
             lastSavedText = request.result.text;
             showIndicator('restored');
+            // Close sidebar after restoring
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.remove('open');
+            localStorage.setItem('sidebarOpen', 'false');
           }
         };
       }
